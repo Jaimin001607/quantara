@@ -20,6 +20,7 @@ interface ChartData {
   ticker: string;
   resolution: string;
   points: Point[];
+  count?: number;
   first_date: string;
   last_date: string;
   first_price: number;

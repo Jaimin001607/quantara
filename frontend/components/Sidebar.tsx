@@ -137,7 +137,7 @@ export default function Sidebar() {
     <button
       onClick={onClick}
       style={{
-        width: "100%", display: "flex", alignItems: "center", gap: 10,
+        display: "flex", alignItems: "center", gap: 10,
         padding: "9px 16px", border: "none", cursor: "pointer",
         background: active ? "rgba(79,70,229,0.08)" : "transparent",
         color: active ? "#4f46e5" : "#6b7280",
