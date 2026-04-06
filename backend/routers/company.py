@@ -1,5 +1,5 @@
 """
-Company router — all endpoints for the Bloomberg MVP platform.
+Company router — all endpoints for the Quantara platform.
 """
 import json
 from typing import Optional, List

@@ -19,7 +19,7 @@ from database.connection import engine
 from sqlalchemy import text
 
 SEC_URL = "https://www.sec.gov/files/company_tickers.json"
-HEADERS = {"User-Agent": os.getenv("SEC_USER_AGENT", "bloomberg-mvp contact@example.com")}
+HEADERS = {"User-Agent": os.getenv("SEC_USER_AGENT", "quantara contact@example.com")}
 
 
 def ingest():

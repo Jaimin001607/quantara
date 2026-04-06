@@ -210,7 +210,7 @@ def _text_extract_supply_chain(ticker: str, cik: str, db: Session) -> List[Dict[
     import httpx
     try:
         from services.sec import get_filings
-        HEADERS = {"User-Agent": os.getenv("SEC_USER_AGENT", "bloomberg-mvp contact@example.com")}
+        HEADERS = {"User-Agent": os.getenv("SEC_USER_AGENT", "quantara contact@example.com")}
 
         filings = get_filings(cik, form_types=["10-K"], limit=1)
         if not filings or not filings[0].get("url"):

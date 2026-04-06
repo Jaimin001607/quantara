@@ -1,4 +1,4 @@
--- Bloomberg MVP Schema v2 — Additive only, does NOT modify existing tables
+-- Quantara Schema v2 — Additive only, does NOT modify existing tables
 
 -- Enable trigram extension for fuzzy search
 CREATE EXTENSION IF NOT EXISTS pg_trgm;

@@ -7,7 +7,7 @@ import httpx
 from typing import Optional, List, Dict, Any
 
 BASE = "https://data.sec.gov"
-HEADERS = {"User-Agent": os.getenv("SEC_USER_AGENT", "bloomberg-mvp contact@example.com")}
+HEADERS = {"User-Agent": os.getenv("SEC_USER_AGENT", "quantara contact@example.com")}
 TIMEOUT = 15
 
 

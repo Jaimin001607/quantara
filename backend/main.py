@@ -8,7 +8,7 @@ from routers import company, market
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
-app = FastAPI(title="Bloomberg MVP API", version="1.0.0")
+app = FastAPI(title="Quantara API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,7 +25,7 @@ app.include_router(market.router,  prefix="/api/v1")
 @app.on_event("startup")
 def startup_event():
     init_db()
-    print("[APP] Bloomberg MVP API started.")
+    print("[APP] Quantara API started.")
 
 
 @app.get("/health")

@@ -1,4 +1,4 @@
--- Bloomberg MVP Database Schema
+-- Quantara Database Schema
 
 CREATE TABLE IF NOT EXISTS companies (
     id          SERIAL PRIMARY KEY,
