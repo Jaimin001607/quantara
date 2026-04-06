@@ -1,4 +1,4 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001/api/v1";
 
 export interface StockQuote {
   ticker: string;
@@ -73,7 +73,7 @@ export interface SearchResult {
 }
 
 async function apiFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { next: { revalidate: 0 } });
+  const res = await fetch(`${BASE}${path}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || `API error ${res.status}`);
