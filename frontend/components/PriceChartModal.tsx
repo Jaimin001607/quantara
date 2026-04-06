@@ -36,6 +36,7 @@ interface Props {
 }
 
 const RANGES = [
+  { label: "1D",  months: 0,   resolution: "H" },
   { label: "1M",  months: 1,   resolution: "D" },
   { label: "3M",  months: 3,   resolution: "D" },
   { label: "1Y",  months: 12,  resolution: "W" },
@@ -49,6 +50,11 @@ function fmt(n: number | null | undefined): string {
 }
 
 function fmtDate(dateStr: string, resolution: string): string {
+  if (resolution === "H") {
+    // dateStr is "2024-04-05T14:00"
+    const d = new Date(dateStr + ":00Z");
+    return d.toLocaleTimeString("en-US", { hour: "numeric", hour12: true, timeZone: "UTC" });
+  }
   const d = new Date(dateStr + "T00:00:00Z");
   if (resolution === "D" || resolution === "W") {
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
@@ -73,7 +79,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function PriceChartModal({ ticker, companyName, currentPrice, onClose }: Props) {
-  const [rangeIdx, setRangeIdx]   = useState(2); // default 1Y
+  const [rangeIdx, setRangeIdx]   = useState(3); // default 1Y
   const [data, setData]           = useState<ChartData | null>(null);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
@@ -102,7 +108,7 @@ export default function PriceChartModal({ ticker, companyName, currentPrice, onC
   // Filter points to selected range
   const visiblePoints = (() => {
     if (!data) return [];
-    if (range.months >= 999) return data.points;
+    if (range.months >= 999 || range.resolution === "H") return data.points;
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - range.months);
     return data.points.filter(p => new Date(p.date) >= cutoff);
@@ -198,7 +204,7 @@ export default function PriceChartModal({ ticker, companyName, currentPrice, onC
             </button>
           ))}
           <div style={{ marginLeft: "auto", fontSize: 11, color: "#9ca3af", alignSelf: "center" }}>
-            Source: Finnhub · {range.resolution === "D" ? "Daily" : range.resolution === "W" ? "Weekly" : "Monthly"} candles
+            Source: Yahoo Finance · {range.resolution === "H" ? "Hourly" : range.resolution === "D" ? "Daily" : range.resolution === "W" ? "Weekly" : "Monthly"} candles
           </div>
         </div>
 

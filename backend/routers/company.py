@@ -280,7 +280,7 @@ def get_financials(ticker: str):
 @router.get("/company/{ticker}/price-chart")
 def get_price_chart(
     ticker: str,
-    resolution: str = Query("M", pattern="^(D|W|M)$"),
+    resolution: str = Query("M", pattern="^(H|D|W|M)$"),
 ):
     """
     Full historical OHLC data for charting.
