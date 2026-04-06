@@ -148,9 +148,10 @@ export default function PriceChartModal({ ticker, companyName, currentPrice, onC
         secondsVisible: false,
         tickMarkFormatter: (t: UTCTimestamp) => {
           const d = new Date((t as number) * 1000);
-          const h = d.getUTCHours(), m = d.getUTCMinutes();
-          const period = h >= 12 ? "PM" : "AM";
-          return `${h % 12 || 12}${m ? `:${String(m).padStart(2, "0")}` : ""} ${period}`;
+          return d.toLocaleTimeString("en-US", {
+            hour: "numeric", minute: "2-digit", hour12: true,
+            timeZone: "America/New_York",
+          });
         },
       },
       handleScale: true, handleScroll: true,
@@ -205,7 +206,9 @@ export default function PriceChartModal({ ticker, companyName, currentPrice, onC
             </div>
             {data && (
               <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
-                {data.first_date} – {data.last_date} · {visiblePoints.length} {is1D ? "5-min candles" : "data points"}
+                {is1D
+                  ? `${visiblePoints.length} candles · today's session (ET)`
+                  : `${data.first_date} – ${data.last_date} · ${visiblePoints.length} data points`}
               </div>
             )}
           </div>
