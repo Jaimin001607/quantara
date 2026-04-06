@@ -114,7 +114,7 @@ function TradeCard({ t }: { t: Trade }) {
 
       {/* CTA */}
       <button
-        onClick={() => router.push(`/company/${t.ticker}`)}
+        onClick={() => router.push(`/company?t=${t.ticker}`)}
         style={{
           width: "100%", padding: "12px", borderRadius: 10, cursor: "pointer",
           background: "rgba(79,70,229,0.07)", border: "1px solid rgba(79,70,229,0.2)",

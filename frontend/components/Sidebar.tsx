@@ -190,7 +190,7 @@ export default function Sidebar() {
         {currentTicker && navItem(
           `${currentTicker} Map`,
           <MapIcon />,
-          () => router.push(`/company/${currentTicker}`),
+          () => router.push(`/company?t=${currentTicker}`),
           false,
         )}
         {currentTicker && (
@@ -292,7 +292,7 @@ export default function Sidebar() {
               return (
                 <div
                   key={i}
-                  onClick={() => router.push(`/company/${t.ticker}`)}
+                  onClick={() => router.push(`/company?t=${t.ticker}`)}
                   style={{
                     padding: "10px 14px",
                     borderBottom: "1px solid #f7f8fc",

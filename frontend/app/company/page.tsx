@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, useCallback, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { getCompany, CompanyFull } from "@/lib/api";
 
 import Spinner from "@/components/Spinner";
@@ -26,21 +26,21 @@ interface Relationship {
 
 type View = "bubble" | "exit" | "dashboard";
 
-export default function CompanyPage() {
-  const params = useParams();
+function CompanyPageInner() {
+  const searchParams = useSearchParams();
   const router = useRouter();
-  const ticker = (params?.ticker as string)?.toUpperCase();
+  const ticker = searchParams.get("t")?.toUpperCase() ?? "";
 
-  const [data, setData]             = useState<CompanyFull | null>(null);
+  const [data, setData]               = useState<CompanyFull | null>(null);
   const [supplyChain, setSupplyChain] = useState<Relationship[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [view, setView]             = useState<View>("bubble");
-  const [showChart, setShowChart]   = useState(false);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
+  const [refreshing, setRefreshing]   = useState(false);
+  const [view, setView]               = useState<View>("bubble");
+  const [showChart, setShowChart]     = useState(false);
 
   const fetchData = useCallback(async (refresh = false) => {
-    if (!ticker) return;
+    if (!ticker) { router.push("/"); return; }
     refresh ? setRefreshing(true) : setLoading(true);
     setError(null);
     try {
@@ -52,9 +52,8 @@ export default function CompanyPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [ticker]);
+  }, [ticker, router]);
 
-  // Fetch supply chain separately (non-blocking)
   useEffect(() => {
     if (!ticker) return;
     fetch(`${API}/company/${ticker}/supply-chain`)
@@ -65,13 +64,11 @@ export default function CompanyPage() {
 
   useEffect(() => { fetchData(false); }, [fetchData]);
 
-  // Transition: bubble → dashboard with animation
   const enterDashboard = useCallback(() => {
     setView("exit");
     setTimeout(() => setView("dashboard"), 450);
   }, []);
 
-  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, background: "var(--bg)" }}>
@@ -102,7 +99,6 @@ export default function CompanyPage() {
 
   if (!data) return null;
 
-  // ── BUBBLE VIEW ───────────────────────────────────────────────────────────
   if (view === "bubble" || view === "exit") {
     return (
       <div style={{
@@ -120,7 +116,6 @@ export default function CompanyPage() {
     );
   }
 
-  // ── DASHBOARD VIEW ────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", animation: "fadeInUp 0.5s ease" }}>
       <style>{`
@@ -130,7 +125,6 @@ export default function CompanyPage() {
         }
       `}</style>
 
-      {/* Company sub-bar */}
       <div style={{
         display: "flex", alignItems: "center", gap: 12,
         padding: "8px 24px", background: "var(--surface)",
@@ -167,14 +161,12 @@ export default function CompanyPage() {
         )}
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
-          {/* Left 2/3 */}
           <div style={{ gridColumn: "1 / 3", display: "flex", flexDirection: "column", gap: 20 }}>
             <OverviewPanel company={data.company} quote={data.quote} />
             <FinancialsPanel financials={data.financials ?? null} />
             <FilingsPanel filings={data.filings} />
             <SupplyChainPanel ticker={ticker} />
           </div>
-          {/* Right 1/3 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <AISignalPanel analysis={data.ai_analysis} onRefresh={() => fetchData(true)} refreshing={refreshing} />
             <NewsPanel articles={data.news} />
@@ -182,5 +174,17 @@ export default function CompanyPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CompanyPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
+        <Spinner size={36} />
+      </div>
+    }>
+      <CompanyPageInner />
+    </Suspense>
   );
 }

@@ -28,7 +28,7 @@ export default function HomePage() {
     return () => { if (debounce.current) clearTimeout(debounce.current); };
   }, [query, doSearch]);
 
-  const go = (ticker: string) => router.push(`/company/${ticker.toUpperCase()}`);
+  const go = (ticker: string) => router.push(`/company?t=${ticker.toUpperCase()}`);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
