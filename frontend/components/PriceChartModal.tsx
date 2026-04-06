@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { createChart, CandlestickSeries, IChartApi, ISeriesApi, CandlestickData, Time } from "lightweight-charts";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer,
+} from "recharts";
+import { createChart, CandlestickSeries, UTCTimestamp } from "lightweight-charts";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001/api/v1";
 
@@ -32,150 +36,140 @@ interface Props {
 }
 
 const RANGES = [
-  { label: "1D",  resolution: "H" },
-  { label: "1M",  resolution: "D" },
-  { label: "3M",  resolution: "D" },
-  { label: "1Y",  resolution: "W" },
-  { label: "5Y",  resolution: "M" },
-  { label: "All", resolution: "M" },
+  { label: "1D",  resolution: "H",  months: 0  },
+  { label: "1M",  resolution: "D",  months: 1  },
+  { label: "3M",  resolution: "D",  months: 3  },
+  { label: "1Y",  resolution: "W",  months: 12 },
+  { label: "5Y",  resolution: "M",  months: 60 },
+  { label: "All", resolution: "M",  months: 0  },
 ];
 
-// How many months back to show for each range (0 = all data from API)
-const RANGE_MONTHS: Record<string, number> = {
-  "1D": 0, "1M": 1, "3M": 3, "1Y": 12, "5Y": 60, "All": 0,
-};
-
-function fmt(n: number | null | undefined): string {
+function fmt(n: number | null | undefined) {
   if (n == null) return "—";
   return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function fmtAxisDate(dateStr: string, resolution: string) {
+  const d = new Date(dateStr + "T00:00:00Z");
+  if (resolution === "D" || resolution === "W")
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  return d.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+}
+
+// Parse "2026-04-02T13:30" → Unix seconds (UTC)
+function parseIntradayTs(dateStr: string): UTCTimestamp {
+  const [datePart, timePart = "00:00"] = dateStr.split("T");
+  const [y, mo, d] = datePart.split("-").map(Number);
+  const [h, mi]    = timePart.split(":").map(Number);
+  return (Date.UTC(y, mo - 1, d, h, mi) / 1000) as UTCTimestamp;
+}
+
+const AreaTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  const p = payload[0].payload as Point;
+  return (
+    <div style={{ background: "#fff", border: "1px solid #e4e8f2", borderRadius: 10, padding: "10px 14px", boxShadow: "0 4px 16px rgba(0,0,0,0.10)", fontSize: 12 }}>
+      <div style={{ fontWeight: 700, marginBottom: 4, color: "#0f172a" }}>{label}</div>
+      <div style={{ color: "#4f46e5" }}>Close: <strong>${fmt(p.close)}</strong></div>
+      {p.high != null && <div style={{ color: "#059669" }}>High: ${fmt(p.high)}</div>}
+      {p.low  != null && <div style={{ color: "#dc2626" }}>Low: ${fmt(p.low)}</div>}
+    </div>
+  );
+};
+
 export default function PriceChartModal({ ticker, companyName, currentPrice, onClose }: Props) {
-  const [rangeIdx, setRangeIdx] = useState(3); // default 1Y
+  const [rangeIdx, setRangeIdx] = useState(3);
   const [data, setData]         = useState<ChartData | null>(null);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
 
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef          = useRef<IChartApi | null>(null);
-  const seriesRef         = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const candleContainerRef = useRef<HTMLDivElement>(null);
 
-  const range = RANGES[rangeIdx];
+  const range    = RANGES[rangeIdx];
+  const is1D     = range.label === "1D";
 
-  // ── Fetch data ────────────────────────────────────────────────────────────
-  const fetchChart = useCallback(async (resolution: string) => {
-    setLoading(true);
-    setError(null);
+  // ── Fetch ─────────────────────────────────────────────────────────────────
+  const fetchChart = useCallback(async (res: string) => {
+    setLoading(true); setError(null);
     try {
-      const res = await fetch(`${API}/company/${ticker}/price-chart?resolution=${resolution}`);
-      if (!res.ok) throw new Error("No data");
-      setData(await res.json());
-    } catch {
-      setError("Price history unavailable.");
-    } finally {
-      setLoading(false);
-    }
+      const r = await fetch(`${API}/company/${ticker}/price-chart?resolution=${res}`);
+      if (!r.ok) throw new Error("No data");
+      setData(await r.json());
+    } catch { setError("Price history unavailable."); }
+    finally { setLoading(false); }
   }, [ticker]);
 
   useEffect(() => { fetchChart(range.resolution); }, [rangeIdx]); // eslint-disable-line
 
-  // ── Build chart ───────────────────────────────────────────────────────────
+  // ── Filter visible points for area chart ──────────────────────────────────
+  const visiblePoints = (() => {
+    if (!data || is1D) return data?.points ?? [];
+    if (range.months === 0) return data.points;
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - range.months);
+    return data.points.filter(p => new Date(p.date + "T00:00:00Z") >= cutoff);
+  })();
+
+  const firstClose = visiblePoints[0]?.close ?? 0;
+  const lastClose  = visiblePoints[visiblePoints.length - 1]?.close ?? 0;
+  const rangePct   = firstClose ? ((lastClose - firstClose) / firstClose * 100) : 0;
+  const isUp       = rangePct >= 0;
+
+  // ── Build TradingView candle chart (1D only) ───────────────────────────────
   useEffect(() => {
-    if (!chartContainerRef.current || loading || error || !data) return;
+    if (!is1D || !candleContainerRef.current || loading || !data) return;
 
-    // Destroy previous chart
-    if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; }
+    const container = candleContainerRef.current;
+    container.innerHTML = "";
 
-    const months = RANGE_MONTHS[range.label];
-    const cutoff = months > 0 ? (() => { const d = new Date(); d.setMonth(d.getMonth() - months); return d; })() : null;
-
-    const isIntraday = range.resolution === "H";
-
-    // Build candle data
-    const candles: CandlestickData[] = data.points
-      .filter(p => {
-        if (!cutoff) return true;
-        return new Date(isIntraday ? p.date : p.date + "T00:00:00Z") >= cutoff;
-      })
+    const candles = data.points
       .filter(p => p.open != null && p.high != null && p.low != null && p.close != null)
       .map(p => ({
-        time: (isIntraday
-          ? Math.floor(new Date(p.date + ":00Z").getTime() / 1000)
-          : p.date) as Time,
+        time:  parseIntradayTs(p.date),
         open:  p.open  as number,
         high:  p.high  as number,
         low:   p.low   as number,
         close: p.close as number,
-      }));
+      }))
+      .sort((a, b) => (a.time as number) - (b.time as number));
 
-    if (candles.length === 0) { setError("No candle data available."); return; }
+    if (candles.length === 0) { setError("No candle data."); return; }
 
-    const isUp = candles[candles.length - 1].close >= candles[0].open;
-
-    const chart = createChart(chartContainerRef.current, {
-      width:  chartContainerRef.current.clientWidth,
+    const chart = createChart(container, {
+      width:  container.clientWidth,
       height: 340,
-      layout: {
-        background: { color: "#ffffff" },
-        textColor:  "#64748b",
-        fontSize:   11,
-        fontFamily: "Inter, sans-serif",
-      },
-      grid: {
-        vertLines:   { color: "#f0f2f8" },
-        horzLines:   { color: "#f0f2f8" },
-      },
+      layout: { background: { color: "#ffffff" }, textColor: "#64748b", fontSize: 11, fontFamily: "Inter, sans-serif" },
+      grid: { vertLines: { color: "#f0f2f8" }, horzLines: { color: "#f0f2f8" } },
       crosshair: { mode: 1 },
-      rightPriceScale: {
-        borderColor: "#e4e8f2",
-        scaleMargins: { top: 0.1, bottom: 0.1 },
-      },
+      rightPriceScale: { borderColor: "#e4e8f2", scaleMargins: { top: 0.1, bottom: 0.1 } },
       timeScale: {
-        borderColor:     "#e4e8f2",
-        timeVisible:     isIntraday,
-        secondsVisible:  false,
-        tickMarkFormatter: isIntraday
-          ? (t: number) => {
-              const d = new Date(t * 1000);
-              const h = d.getUTCHours();
-              const m = d.getUTCMinutes();
-              const period = h >= 12 ? "PM" : "AM";
-              return `${h % 12 || 12}${m ? `:${String(m).padStart(2,"0")}` : ""} ${period}`;
-            }
-          : undefined,
+        borderColor: "#e4e8f2",
+        timeVisible: true,
+        secondsVisible: false,
+        tickMarkFormatter: (t: UTCTimestamp) => {
+          const d = new Date((t as number) * 1000);
+          const h = d.getUTCHours(), m = d.getUTCMinutes();
+          const period = h >= 12 ? "PM" : "AM";
+          return `${h % 12 || 12}${m ? `:${String(m).padStart(2, "0")}` : ""} ${period}`;
+        },
       },
-      handleScale:  true,
-      handleScroll: true,
+      handleScale: true, handleScroll: true,
     });
 
     const series = chart.addSeries(CandlestickSeries, {
-      upColor:         "#059669",
-      downColor:       "#dc2626",
-      borderUpColor:   "#059669",
-      borderDownColor: "#dc2626",
-      wickUpColor:     "#059669",
-      wickDownColor:   "#dc2626",
+      upColor: "#059669", downColor: "#dc2626",
+      borderUpColor: "#059669", borderDownColor: "#dc2626",
+      wickUpColor: "#059669", wickDownColor: "#dc2626",
     });
 
     series.setData(candles);
     chart.timeScale().fitContent();
 
-    chartRef.current  = chart;
-    seriesRef.current = series;
+    const ro = new ResizeObserver(() => chart.applyOptions({ width: container.clientWidth }));
+    ro.observe(container);
 
-    // Resize observer
-    const ro = new ResizeObserver(() => {
-      if (chartContainerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth });
-      }
-    });
-    ro.observe(chartContainerRef.current);
-
-    return () => { ro.disconnect(); };
-  }, [data, loading, error, rangeIdx]); // eslint-disable-line
-
-  // Cleanup on unmount
-  useEffect(() => () => { chartRef.current?.remove(); }, []);
+    return () => { ro.disconnect(); chart.remove(); };
+  }, [is1D, data, loading]); // eslint-disable-line
 
   // Escape key
   useEffect(() => {
@@ -184,34 +178,18 @@ export default function PriceChartModal({ ticker, companyName, currentPrice, onC
     return () => window.removeEventListener("keydown", h);
   }, [onClose]);
 
-  // ── Compute header stats from visible candles ─────────────────────────────
-  const months = RANGE_MONTHS[range.label];
-  const cutoff = months > 0 ? (() => { const d = new Date(); d.setMonth(d.getMonth() - months); return d; })() : null;
-  const isIntraday = range.resolution === "H";
-  const visible = data?.points.filter(p => {
-    if (!cutoff) return true;
-    return new Date(isIntraday ? p.date : p.date + "T00:00:00Z") >= cutoff;
-  }) ?? [];
-  const firstClose = visible[0]?.close ?? 0;
-  const lastClose  = visible[visible.length - 1]?.close ?? 0;
-  const rangePct   = firstClose ? ((lastClose - firstClose) / firstClose * 100) : 0;
-  const isUp       = rangePct >= 0;
-
   return (
-    <div
-      onClick={e => e.target === e.currentTarget && onClose()}
-      style={{
-        position: "fixed", inset: 0, zIndex: 1000,
-        background: "rgba(15,23,42,0.45)", backdropFilter: "blur(6px)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: "24px",
-      }}
-    >
+    <div onClick={e => e.target === e.currentTarget && onClose()} style={{
+      position: "fixed", inset: 0, zIndex: 1000,
+      background: "rgba(15,23,42,0.45)", backdropFilter: "blur(6px)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: "24px",
+    }}>
       <div style={{
         background: "#ffffff", borderRadius: 20, width: "100%", maxWidth: 960,
         maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column",
         boxShadow: "0 24px 64px rgba(0,0,0,0.18)", border: "1px solid #e4e8f2",
       }}>
+
         {/* Header */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "24px 28px 16px", borderBottom: "1px solid #e4e8f2" }}>
           <div>
@@ -227,18 +205,14 @@ export default function PriceChartModal({ ticker, companyName, currentPrice, onC
             </div>
             {data && (
               <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
-                {data.first_date} – {data.last_date} · {visible.length} candles
+                {data.first_date} – {data.last_date} · {visiblePoints.length} {is1D ? "5-min candles" : "data points"}
               </div>
             )}
           </div>
-          <button onClick={onClose} style={{
-            width: 36, height: 36, borderRadius: "50%", border: "1px solid #e4e8f2",
-            background: "#f7f8fc", cursor: "pointer", fontSize: 18, color: "#64748b",
-            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-          }}>×</button>
+          <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: "50%", border: "1px solid #e4e8f2", background: "#f7f8fc", cursor: "pointer", fontSize: 18, color: "#64748b", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>×</button>
         </div>
 
-        {/* Range selector */}
+        {/* Range tabs */}
         <div style={{ display: "flex", gap: 6, padding: "12px 28px", borderBottom: "1px solid #f0f2f8" }}>
           {RANGES.map((r, i) => (
             <button key={r.label} onClick={() => setRangeIdx(i)} style={{
@@ -248,28 +222,47 @@ export default function PriceChartModal({ ticker, companyName, currentPrice, onC
               background:  i === rangeIdx ? "#4f46e5" : "transparent",
               color:       i === rangeIdx ? "#ffffff" : "#6b7280",
               transition: "all 0.15s", fontFamily: "Inter, sans-serif",
-            }}>
-              {r.label}
-            </button>
+            }}>{r.label}</button>
           ))}
           <div style={{ marginLeft: "auto", fontSize: 11, color: "#9ca3af", alignSelf: "center" }}>
-            Candlestick · {range.label === "1D" ? "5-min" : range.label === "1M" || range.label === "3M" ? "Daily" : range.label === "1Y" ? "Weekly" : "Monthly"}
+            {is1D ? "Candlestick · 5-min" : `Area · ${range.resolution === "D" ? "Daily" : range.resolution === "W" ? "Weekly" : "Monthly"}`}
           </div>
         </div>
 
-        {/* Chart */}
-        <div style={{ flex: 1, padding: "8px 0 0", minHeight: 340 }}>
+        {/* Chart area */}
+        <div style={{ flex: 1, minHeight: 340 }}>
           {loading && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 340, color: "#9ca3af", fontSize: 13 }}>
-              Loading…
-            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 340, color: "#9ca3af", fontSize: 13 }}>Loading…</div>
           )}
           {error && !loading && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 340, color: "#dc2626", fontSize: 13 }}>
-              {error}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 340, color: "#dc2626", fontSize: 13 }}>{error}</div>
+          )}
+
+          {/* 1D — TradingView candlestick */}
+          {is1D && !loading && !error && (
+            <div ref={candleContainerRef} style={{ width: "100%", height: 340 }} />
+          )}
+
+          {/* All other ranges — Recharts area chart */}
+          {!is1D && !loading && !error && visiblePoints.length > 0 && (
+            <div style={{ padding: "16px 12px 8px" }}>
+              <ResponsiveContainer width="100%" height={320}>
+                <AreaChart data={visiblePoints} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor={isUp ? "#4f46e5" : "#dc2626"} stopOpacity={0.15} />
+                      <stop offset="95%" stopColor={isUp ? "#4f46e5" : "#dc2626"} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f2f8" vertical={false} />
+                  <XAxis dataKey="date" tickFormatter={d => fmtAxisDate(d, range.resolution)} tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis tickFormatter={v => `$${v >= 1000 ? (v / 1000).toFixed(1) + "k" : v}`} tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={52} domain={["auto", "auto"]} />
+                  <Tooltip content={<AreaTooltip />} />
+                  <Area type="monotone" dataKey="close" stroke={isUp ? "#4f46e5" : "#dc2626"} strokeWidth={2} fill="url(#priceGrad)" dot={false} activeDot={{ r: 4, fill: isUp ? "#4f46e5" : "#dc2626", stroke: "#fff", strokeWidth: 2 }} />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           )}
-          <div ref={chartContainerRef} style={{ width: "100%", display: loading || error ? "none" : "block" }} />
         </div>
 
         <div style={{ padding: "8px 28px 14px", fontSize: 11, color: "#9ca3af", borderTop: "1px solid #f0f2f8" }}>
