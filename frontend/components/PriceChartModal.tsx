@@ -160,7 +160,7 @@ export default function PriceChartModal({ ticker, companyName, currentPrice, onC
             </div>
             {data && (
               <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
-                {data.first_date} – {data.last_date} · {data.count} data points
+                {data.first_date} – {data.last_date} · {data.points.length} data points
               </div>
             )}
           </div>
