@@ -197,7 +197,7 @@ _YF_HEADERS = {
 }
 
 _RESOLUTION_MAP = {
-    "H": ("1h",  "1d"),    # hourly, last 24 hours
+    "H": ("5m",  "1d"),    # 5-min bars, full trading day
     "D": ("1d",  "2y"),    # daily, 2-year default
     "W": ("1wk", "10y"),   # weekly, 10-year
     "M": ("1mo", "max"),   # monthly, all time
@@ -234,7 +234,7 @@ def get_price_candles(ticker: str, resolution: str = "M") -> Optional[Dict[str, 
         adjclose_list = chart.get("indicators", {}).get("adjclose", [{}])
         adjcloses = adjclose_list[0].get("adjclose", []) if adjclose_list else []
 
-        is_intraday = resolution == "H"
+        is_intraday = resolution in ("H",)
         points = []
         for i, ts in enumerate(timestamps):
             c = (adjcloses[i] if i < len(adjcloses) and adjcloses[i] else
