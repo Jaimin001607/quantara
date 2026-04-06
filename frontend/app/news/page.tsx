@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { NewsCardSkeleton } from "@/components/Skeleton";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001/api/v1";
 
@@ -48,8 +49,8 @@ export default function NewsPage() {
       </div>
 
       {loading && (
-        <div style={{ color: "#9ca3af", fontSize: 14, padding: "48px 0", textAlign: "center" }}>
-          Loading news…
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {[1,2,3,4,5,6].map(i => <NewsCardSkeleton key={i} />)}
         </div>
       )}
 

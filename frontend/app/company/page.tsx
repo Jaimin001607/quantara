@@ -5,6 +5,10 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { getCompany, CompanyFull } from "@/lib/api";
 
 import Spinner from "@/components/Spinner";
+import {
+  CompanyHeaderSkeleton, OverviewSkeleton, FinancialsSkeleton,
+  FilingsSkeleton, AISignalSkeleton, NewsPanelSkeleton, SupplyChainSkeleton,
+} from "@/components/Skeleton";
 import BubbleMap from "@/components/BubbleMap";
 import CompanyHeader from "@/components/CompanyHeader";
 import OverviewPanel from "@/components/OverviewPanel";
@@ -71,11 +75,28 @@ function CompanyPageInner() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, background: "var(--bg)" }}>
-        <Spinner size={36} />
-        <div style={{ color: "var(--muted2)", fontSize: 13 }}>FETCHING DATA FOR {ticker}…</div>
-        <div style={{ color: "var(--muted)", fontSize: 11, opacity: 0.6 }}>
-          Quantara · SEC EDGAR · Finnhub · Claude AI
+      <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+        {/* Same sub-bar as real page */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 24px", background: "#fff", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ width: 60, height: 28, borderRadius: 7, background: "#f0f2f8", animation: "shimmer 1.6s ease-in-out infinite", backgroundSize: "200% 100%", backgroundImage: "linear-gradient(90deg,#f0f2f8 25%,#e8ecf5 50%,#f0f2f8 75%)" }} />
+          <div style={{ width: 1, height: 20, background: "var(--border)" }} />
+          <div style={{ width: 40, height: 18, borderRadius: 6, background: "#f0f2f8", animation: "shimmer 1.6s ease-in-out infinite", backgroundSize: "200% 100%", backgroundImage: "linear-gradient(90deg,#f0f2f8 25%,#e8ecf5 50%,#f0f2f8 75%)" }} />
+          <div style={{ width: 160, height: 16, borderRadius: 6, background: "#f0f2f8", animation: "shimmer 1.6s ease-in-out infinite", backgroundSize: "200% 100%", backgroundImage: "linear-gradient(90deg,#f0f2f8 25%,#e8ecf5 50%,#f0f2f8 75%)" }} />
+        </div>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "24px", display: "flex", flexDirection: "column", gap: 20 }}>
+          <CompanyHeaderSkeleton />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
+            <div style={{ gridColumn: "1 / 3", display: "flex", flexDirection: "column", gap: 20 }}>
+              <OverviewSkeleton />
+              <FinancialsSkeleton />
+              <FilingsSkeleton />
+              <SupplyChainSkeleton />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <AISignalSkeleton />
+              <NewsPanelSkeleton />
+            </div>
+          </div>
         </div>
       </div>
     );

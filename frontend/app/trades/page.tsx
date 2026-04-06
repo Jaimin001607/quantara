@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { TradeCardSkeleton } from "@/components/Skeleton";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001/api/v1";
 
@@ -158,11 +159,16 @@ export default function TradesPage() {
   const [loading, setLoad]  = useState(true);
 
   useEffect(() => {
+    const start = Date.now();
     fetch(`${API}/market/big-trades`)
       .then(r => r.json())
       .then(setTrades)
       .catch(() => setTrades([]))
-      .finally(() => setLoad(false));
+      .finally(() => {
+        const elapsed = Date.now() - start;
+        const delay = Math.max(0, 500 - elapsed);
+        setTimeout(() => setLoad(false), delay);
+      });
   }, []);
 
   return (
@@ -178,8 +184,8 @@ export default function TradesPage() {
       </div>
 
       {loading && (
-        <div style={{ color: "#9ca3af", fontSize: 14, padding: "48px 0", textAlign: "center" }}>
-          Loading insider trades…
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))", gap: 16 }}>
+          {[1,2,3,4].map(i => <TradeCardSkeleton key={i} />)}
         </div>
       )}
 
