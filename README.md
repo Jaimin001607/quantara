@@ -1,119 +1,165 @@
 # Quantara — See What Others Miss
 
-Company intelligence platform: SEC filings, real-time market data, AI-powered investment signals, supply chain maps.
+> Real-time company intelligence platform: SEC filings, live market data, AI-powered investment signals, supply chain maps, and insider trades.
 
-**Live:** [quantara.vercel.app](https://frontend-7tzo63f3m-quantara1.vercel.app) · **Repo:** [github.com/Jaimin001607/quantara](https://github.com/Jaimin001607/quantara)
-
-## Architecture
-
-```
-Frontend (Next.js 14 + TailwindCSS)  →  Vercel
-         ↓  REST
-Backend  (FastAPI + Python)           →  Railway
-         ↓
-Data Layer:
-  • SEC EDGAR API      → filings, CIK, employee counts, supply chain
-  • Yahoo Finance      → quotes, financials, price history
-  • Finnhub            → market news, insider trades
-         ↓
-PostgreSQL (caching layer — 1h quotes, 24h everything else)
-         ↓
-Claude API (Sonnet) → filing summaries + investment signals
-```
+**Repo:** [github.com/Jaimin001607/quantara](https://github.com/Jaimin001607/quantara)
 
 ---
 
-## Features
+## What It Does
 
-- **Company Dashboard** — quote, financials, AI investment signal (BUY/HOLD/SELL)
-- **SEC Filings** — 10-K/10-Q with AI summaries
-- **Supply Chain Map** — interactive bubble map for any company (extracted from 10-K text)
-- **Price Chart** — full lifetime OHLC chart (click price to open)
-- **Market News** — live feed from Finnhub
-- **Big Trades** — insider transactions with disclosure timing
+| Feature | Description |
+|---|---|
+| **Company Dashboard** | Full profile, live quote, financials, AI signal (BUY/HOLD/SELL) |
+| **Price Chart** | Click any stock price — opens interactive chart with 1D/1M/3M/1Y/5Y/All |
+| **1D Candlestick** | 5-minute green/red candlestick chart for today's trading session (ET) |
+| **Multi-range Area Chart** | Smooth area chart for 1M, 3M, 1Y, 5Y, All time ranges |
+| **Supply Chain Map** | Interactive bubble map — suppliers, customers, competitors |
+| **SEC Filings** | Latest 10-K and 10-Q filings with AI summaries |
+| **Market News** | Live news feed from Finnhub across all markets |
+| **Big Trades** | Insider transactions ≥$500K with disclosure timing |
+| **Smart Search** | Fuzzy search by ticker or company name |
 
 ---
 
-## Prerequisites
+## Tech Stack
 
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL 14+
-- Anthropic API key (https://console.anthropic.com)
-- Finnhub API key — free at https://finnhub.io
+```
+Frontend  Next.js 14 (App Router) + TailwindCSS + Recharts + TradingView lightweight-charts
+Backend   FastAPI (Python) + SQLAlchemy + PostgreSQL
+Data      SEC EDGAR API · Yahoo Finance · Finnhub · Claude AI (Anthropic)
+```
 
 ---
 
 ## Local Setup
 
-### 1. Database
+### Requirements
+- Python 3.11+
+- Node.js 18+
+- PostgreSQL 14+
 
+### 1. Clone
 ```bash
-psql -U postgres -c "CREATE DATABASE quantara;"
+git clone https://github.com/Jaimin001607/quantara.git
+cd quantara
 ```
 
-### 2. Backend
+### 2. Database
+```bash
+psql postgres -c "CREATE DATABASE bloomberg_mvp;"
+```
 
+### 3. Backend
 ```bash
 cd bloomberg-mvp/backend
-python -m venv venv
-source venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 cp .env.example .env
-# Edit .env — fill in keys
+# Fill in your real values in .env
 ```
 
-`.env`:
+`.env` file:
 ```
 ANTHROPIC_API_KEY=sk-ant-...
-FINNHUB_API_KEY=your_finnhub_key
-DATABASE_URL=postgresql://postgres:password@localhost:5432/quantara
+FINNHUB_API_KEY=your_finnhub_key     # free at finnhub.io
+DATABASE_URL=postgresql://YOUR_USER@localhost:5432/bloomberg_mvp
 SEC_USER_AGENT=YourName yourname@email.com
 ```
 
+Start the backend:
 ```bash
 uvicorn main:app --reload --port 8001
 ```
 
-### 3. Frontend
-
+### 4. Frontend
 ```bash
 cd bloomberg-mvp/frontend
 npm install
-npm run dev   # http://localhost:3000
+npm run dev                          # runs on http://localhost:3000
 ```
+
+Open **http://localhost:3000**
 
 ---
 
-## API Endpoints
+## API Reference
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/search?q=AAPL` | Search companies |
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/v1/search?q=AAPL` | Search companies (fuzzy) |
 | GET | `/api/v1/company/{ticker}` | Full dashboard data |
 | GET | `/api/v1/company/{ticker}?refresh=true` | Force-refresh cache |
 | GET | `/api/v1/company/{ticker}/financials` | Financials only |
-| GET | `/api/v1/company/{ticker}/price-chart` | OHLC price history |
+| GET | `/api/v1/company/{ticker}/price-chart?resolution=H` | Price candles (H/D/W/M) |
 | GET | `/api/v1/company/{ticker}/supply-chain` | Supply chain graph |
 | GET | `/api/v1/market/news` | Market news feed |
 | GET | `/api/v1/market/big-trades` | Insider transactions |
 | GET | `/health` | Health check |
 
+**Price chart resolutions:**
+- `H` — 5-minute candles, current trading day
+- `D` — daily candles, 2 years
+- `W` — weekly candles, 10 years
+- `M` — monthly candles, full history
+
 ---
 
 ## Data Sources
 
-| Source | What | Cost |
-|--------|------|------|
-| SEC EDGAR API | Filings, CIK, employee counts, supply chain | Free |
-| Yahoo Finance | Quotes, financials, full price history | Free |
-| Finnhub | News, insider trades | Free tier |
-| Claude Sonnet | Filing summaries, investment signals | Paid per token |
+| Source | Data | Cost |
+|---|---|---|
+| SEC EDGAR | Filings, CIK lookup, employee counts, supply chain extraction | Free |
+| Yahoo Finance | Price history (full lifetime OHLC) | Free |
+| Finnhub | Live quotes, financials, news, insider trades | Free tier |
+| Anthropic Claude | Filing summaries, AI investment signals | Paid per token |
 
 ---
 
-## Deployment
+## Project Structure
 
-- **Frontend:** Vercel (auto-deploys on push to `main`)
-- **Backend:** Railway (set env vars, attach PostgreSQL plugin)
+```
+bloomberg-mvp/
+├── backend/
+│   ├── main.py                  # FastAPI app entry
+│   ├── routers/
+│   │   ├── company.py           # Company endpoints
+│   │   └── market.py            # News + trades endpoints
+│   ├── services/
+│   │   ├── yahoo.py             # Yahoo Finance (price history)
+│   │   ├── sec.py               # SEC EDGAR (filings, CIK, employees)
+│   │   ├── supply_chain.py      # Supply chain extraction from 10-K
+│   │   ├── ai_service.py        # Claude AI + rule-based signals
+│   │   ├── news.py              # News aggregation
+│   │   └── cache.py             # DB caching layer
+│   ├── database/
+│   │   ├── connection.py
+│   │   └── schema.sql
+│   ├── requirements.txt
+│   └── .env.example
+└── frontend/
+    ├── app/
+    │   ├── page.tsx             # Home / search
+    │   ├── company/page.tsx     # Company dashboard
+    │   ├── news/page.tsx        # Market news page
+    │   └── trades/page.tsx      # Big trades page
+    ├── components/
+    │   ├── TopNav.tsx           # Navigation bar
+    │   ├── BubbleMap.tsx        # D3 supply chain visualization
+    │   ├── PriceChartModal.tsx  # TradingView candlestick + area chart
+    │   ├── AISignalPanel.tsx    # BUY/HOLD/SELL signal
+    │   ├── CompanyHeader.tsx    # Quote + price button
+    │   └── ...
+    └── lib/api.ts               # API client
+```
+
+---
+
+## Notes
+
+- AI signals fall back to rule-based scoring if no Anthropic API credits
+- Supply chain data uses static seeds + live 10-K text extraction
+- All data is cached in PostgreSQL (quotes: 1h, everything else: 24h)
+- Not financial advice
